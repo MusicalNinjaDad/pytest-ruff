@@ -60,7 +60,7 @@ class RuffFile(pytest.File):
     def collect(self):
         collection = []
         if self.config.option.ruff:
-            collection.append(RuffItem)
+            collection.append(RuffItem.from_parent(self, name='.'.join([self.name,'ruff'])))
         if self.config.option.ruff_format:
             collection.append(RuffFormatItem.from_parent(self, name="ruff::format"))
         return [Item.from_parent(self, name=Item.name) for Item in collection]
@@ -86,7 +86,7 @@ def format_file(path):
 
 
 class RuffItem(pytest.Item):
-    name = "ruff"
+    name = "ruff2"
 
     def __init__(self, *k, **kwargs):
         super().__init__(*k, **kwargs)
