@@ -2,6 +2,7 @@ from subprocess import Popen, PIPE
 
 # Python<=3.8 don't support typing with builtin dict.
 from typing import Dict
+from _pytest._code.code import TerminalRepr
 
 import pytest
 from ruff.__main__ import find_ruff_bin
@@ -58,12 +59,10 @@ class RuffError(Exception):
 
 class RuffFile(pytest.File):
     def collect(self):
-        collection = []
         if self.config.option.ruff:
-            collection.append(RuffItem.from_parent(self, name='.'.join([self.name,'ruff'])))
+            yield RuffItem.from_parent(self, name='ruff::lint')
         if self.config.option.ruff_format:
-            collection.append(RuffFormatItem.from_parent(self, name="ruff::format"))
-        return [Item.from_parent(self, name=Item.name) for Item in collection]
+            yield RuffFormatItem.from_parent(self, name="ruff::format")
 
 
 def check_file(path):
@@ -86,11 +85,10 @@ def format_file(path):
 
 
 class RuffItem(pytest.Item):
-    name = "ruff2"
 
-    def __init__(self, *k, **kwargs):
-        super().__init__(*k, **kwargs)
-        self.add_marker("ruff")
+    def __init__(self, *, name, parent, **kwargs):
+        super().__init__(parent=parent, name=name, **kwargs)
+        # self.add_marker("ruff")
 
     def setup(self):
         ruffmtimes = self.config.stash.get(_MTIMES_STASH_KEY, {})
@@ -106,8 +104,13 @@ class RuffItem(pytest.Item):
         if ruffmtimes:
             ruffmtimes[str(self.fspath)] = self._ruffmtime
 
+    def repr_failure(self, excinfo: pytest.ExceptionInfo[BaseException], style = None) -> str | TerminalRepr:
+        if isinstance (excinfo.value, RuffError):
+            return f"Linting Error: {str(excinfo)}"
+        return super().repr_failure(excinfo, style)
+
     def reportinfo(self):
-        return (self.fspath, None, "")
+        return (self.fspath, None, "ruff")
 
     def handler(self, path):
         return check_file(path)
